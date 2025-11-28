@@ -614,30 +614,99 @@ spawn(function()
     end
 end)
 
--- ลูป Auto Collect (แก้ไขให้ไม่กระทบการเดิน)
+-- ปรับแต่ง ProximityPrompts ให้ไม่บังจอ
+spawn(function()
+    local function setupProximityPrompts()
+        pcall(function()
+            local proximityGui = player.PlayerGui:FindFirstChild("ProximityPrompts")
+            if proximityGui then
+                local prompt = proximityGui:FindFirstChild("Prompt")
+                if prompt then
+                    -- ทำให้เล็กและโปร่งใสมาก
+                    prompt.Size = UDim2.new(0, 40, 0, 25)
+                    prompt.Position = UDim2.new(0.5, 0, 0.92, 0) -- มุมล่างสุด
+                    prompt.BackgroundTransparency = 0.95
+                    
+                    -- ทำให้ทะลุได้
+                    for _, child in pairs(prompt:GetDescendants()) do
+                        if child:IsA("GuiObject") then
+                            child.Active = false
+                            child.ZIndex = 1
+                        end
+                        if child:IsA("TextLabel") or child:IsA("TextButton") then
+                            child.TextTransparency = 0.9
+                            child.TextSize = 8
+                        end
+                    end
+                    
+                    -- ถ้าอยากซ่อนเลย ให้เอา comment ออก
+                    -- prompt.Visible = false
+                end
+            end
+        end)
+    end
+    
+    while true do
+        setupProximityPrompts()
+        wait(0.1)
+    end
+end)
+
+-- ลูป Auto Collect (ดึงไอเทมมาหาตัวเรา + ไม่กระทบการเดิน)
 spawn(function()
     while true do
-        wait(0.1)
+        wait(0.05) -- เร็วขึ้นหน่อย
         if settings.autoCollect.enabled and humanoidRootPart then
             local items = findDroppedItems()
             for _, item in pairs(items) do
                 spawn(function()
                     pcall(function()
-                        -- เก็บตำแหน่งเดิมของผู้เล่น
-                        local originalCFrame = humanoidRootPart.CFrame
-                        
-                        -- ดึงไอเทมมาหาตัวแทน (ไม่ย้ายผู้เล่น)
-                        item.part.CFrame = CFrame.new(humanoidRootPart.Position + Vector3.new(0, 2, 0))
-                        
-                        -- รอให้ไอเทมมาถึง
-                        wait(0.02)
-                        
-                        -- กดเก็บของ
-                        pressE()
-                        
-                        -- คืนค่าตำแหน่งผู้เล่น (ป้องกันการกระตุก)
-                        humanoidRootPart.CFrame = originalCFrame
-                        humanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                        if item.part and item.part.Parent then
+                            -- ดึงไอเทมมาหาตัว (ไม่ดึงตัวเราไป)
+                            local targetPos = humanoidRootPart.Position + Vector3.new(0, -2, 0) -- ใต้เท้านิดหน่อย
+                            
+                            -- ปิด CanCollide เพื่อไม่ให้บังหรือดัน
+                            if item.part:IsA("BasePart") then
+                                item.part.CanCollide = false
+                            end
+                            
+                            -- ถ้ามี Parent เป็น Model ให้ปิด CanCollide ทั้งหมด
+                            if item.part.Parent:IsA("Model") then
+                                for _, part in pairs(item.part.Parent:GetDescendants()) do
+                                    if part:IsA("BasePart") then
+                                        part.CanCollide = false
+                                    end
+                                end
+                            end
+                            
+                            -- ดึงมาหาตัว (ใช้ CFrame แทน Position เพื่อความรวดเร็ว)
+                            item.part.CFrame = CFrame.new(targetPos)
+                            
+                            -- ถ้ามี Velocity ให้ตั้งเป็น 0
+                            if item.part:IsA("BasePart") then
+                                item.part.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                                item.part.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+                            end
+                            
+                            -- รอนิดหนึ่งแล้วหา ProximityPrompt
+                            wait(0.01)
+                            
+                            local proximityPrompt = nil
+                            if item.part.Parent:IsA("Model") then
+                                proximityPrompt = item.part.Parent:FindFirstChildOfClass("ProximityPrompt", true)
+                            end
+                            if not proximityPrompt then
+                                proximityPrompt = item.part:FindFirstChildOfClass("ProximityPrompt", true)
+                            end
+                            
+                            -- Trigger ProximityPrompt
+                            if proximityPrompt then
+                                fireproximityprompt(proximityPrompt, 0)
+                            else
+                                -- ถ้าไม่มี ProximityPrompt ใช้วิธีกด E
+                                pressE()
+                            end
+                        end
                     end)
                 end)
             end
