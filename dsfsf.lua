@@ -12,7 +12,12 @@ local LockedTarget = nil
 
 -- ฟังก์ชันตรวจสอบทีม (ปรับปรุงให้ป้องกันการล็อคทีมตัวเอง)
 local function IsEnemy(player)
-    -- ถ้าไม่มีระบบทีม ให้ถือว่าเป็นศัตรู
+    -- ต้องไม่ใช่ตัวเองก่อน
+    if player == LocalPlayer then
+        return false
+    end
+    
+    -- ถ้าเกมไม่มีระบบทีม ให้ล็อคได้ทุกคน (ยกเว้นตัวเอง)
     if not LocalPlayer.Team or not player.Team then
         return true
     end
@@ -47,20 +52,14 @@ local function GetClosestEnemy()
     local shortestDistance = math.huge
     
     for _, player in pairs(Players:GetPlayers()) do
-        -- ข้ามผู้เล่นตัวเองและตรวจสอบว่าเป็นศัตรูหรือไม่
-        if player ~= LocalPlayer and player.Character and IsEnemy(player) then
+        -- ตรวจสอบว่าเป็นศัตรูหรือไม่
+        if IsEnemy(player) and player.Character then
             local head = GetCharacterHead(player)
             if head then
-                -- ตรวจสอบว่ามองเห็นได้หรือไม่
-                local ray = Ray.new(Camera.CFrame.Position, (head.Position - Camera.CFrame.Position).Unit * 500)
-                local part = workspace:FindPartOnRayWithIgnoreList(ray, {LocalPlayer.Character})
-                
-                if part and part:IsDescendantOf(player.Character) then
-                    local distance = GetDistanceFromMouse(head.Position)
-                    if distance < shortestDistance then
-                        shortestDistance = distance
-                        closestEnemy = player
-                    end
+                local distance = GetDistanceFromMouse(head.Position)
+                if distance < shortestDistance and distance < 500 then -- จำกัดระยะ
+                    shortestDistance = distance
+                    closestEnemy = player
                 end
             end
         end
