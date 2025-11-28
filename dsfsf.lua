@@ -614,7 +614,7 @@ spawn(function()
     end
 end)
 
--- ลูป Auto Collect
+-- ลูป Auto Collect (แก้ไขให้ไม่กระทบการเดิน)
 spawn(function()
     while true do
         wait(0.1)
@@ -623,9 +623,21 @@ spawn(function()
             for _, item in pairs(items) do
                 spawn(function()
                     pcall(function()
-                        item.part.CFrame = humanoidRootPart.CFrame
-                        wait(0.05)
+                        -- เก็บตำแหน่งเดิมของผู้เล่น
+                        local originalCFrame = humanoidRootPart.CFrame
+                        
+                        -- ดึงไอเทมมาหาตัวแทน (ไม่ย้ายผู้เล่น)
+                        item.part.CFrame = CFrame.new(humanoidRootPart.Position + Vector3.new(0, 2, 0))
+                        
+                        -- รอให้ไอเทมมาถึง
+                        wait(0.02)
+                        
+                        -- กดเก็บของ
                         pressE()
+                        
+                        -- คืนค่าตำแหน่งผู้เล่น (ป้องกันการกระตุก)
+                        humanoidRootPart.CFrame = originalCFrame
+                        humanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
                     end)
                 end)
             end
